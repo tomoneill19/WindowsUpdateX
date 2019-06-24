@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension" xmlns:sql="http://schemas.microsoft.com/wix/SqlExtension">
+  <?define WindowsServiceX_TargetDir=$(var.WindowsServiceX.TargetDir)?>
+  <?define UpdateCore_TargetDir=$(var.UpdateCore.TargetDir)?>
+  <?define UpdateUI_TargetDir=$(var.UpdateUI.TargetDir)?>
+	<Product Id="76a584e6-20ec-40e4-acfe-ff73392a5bd3" Name="WindowsUpdateX" Language="1033" Version="1.0.0.0" Manufacturer="Tom O'Neill" UpgradeCode="24cb98c1-39a3-43ab-9d90-45042a52d255">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+    <WixVariable Id ="WixUILicenseRtf" Value="$(var.ProjectDir)\Licence.rtf"/>
+    
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+
+    <UIRef Id="WixUI_InstallDir"></UIRef>
+      
+		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+		<MediaTemplate EmbedCab="yes" />
+
+		<Feature Id="ProductFeature" Title="WindowsUpdateX" Level="1">
+			<ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ApplicationShortcutDesktop" />
+      <ComponentRef Id="SqlComponentDatabasePatches" />
+		</Feature>
+
+    <Binary Id="InstallScript" SourceFile="InstallScript.sql" />
+    <util:User Id="SQLUser" Name="WXUser" Password="sausages1212"/>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="SqlComponentDatabasePatches" Guid="884CBAAA-C310-4203-81A9-B367C7C897BA">
+        <CreateFolder />
+        <!--SET NEXT LINE FOR DROP DB ON UNINSTALL-->
+        <sql:SqlDatabase Id="WindowsUpdates" Database="WindowsUpdates" Server="localhost" User="SQLUser" ConfirmOverwrite="yes" CreateOnInstall="yes" CreateOnReinstall="no" DropOnInstall="no" DropOnReinstall="no" CreateOnUninstall="no" DropOnUninstall="yes" >
+          <sql:SqlScript Id="CreateDatabases" ExecuteOnInstall="yes" BinaryKey="InstallScript" />
+        </sql:SqlDatabase>
+      </Component>
+    </DirectoryRef>
+    
+	</Product>
+
+	<Fragment>
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="ProgramFilesFolder">
+				<Directory Id="INSTALLFOLDER" Name="WindowsUpdateX" />
+			</Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="WindowsUpdateX" />
+      </Directory>
+      <Directory Id="DesktopFolder" Name="Desktop" />
+		</Directory>
+	</Fragment>
+
+  <Fragment>
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="11103fb4-496d-43f3-8287-a4c35cd2fa04">
+        <Shortcut Id="ApplicationStartMenuShortcut" Name="WindowsUpdateX" Description="WindowsUpdateX" Target="[INSTALLFOLDER]WindowsUpdateXClient.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\WindowsUpdateX" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="ApplicationShortcutDesktop" Guid="1b45a150-ec17-41bb-a7b8-dc86e5d75a25">
+        <Shortcut Id="ApplicationDesktopShortcut" Name="WindowsUpdateX" Description="WindowsUpdateX" Target="[INSTALLFOLDER]WindowsUpdateXClient.exe" WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveDesktopFolder" Directory="DesktopFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\WindowsUpdateX" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+	<Fragment>
+		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      
+			<Component Id="WindowsUpdateXService.exe.config" Guid="cf51025e-3855-4ff0-8bf1-941c4cf962b9">
+			  <File Id="WindowsUpdateXService.exe" Name="WindowsUpdateXService.exe" Source="$(var.WindowsServiceX_TargetDir)WindowsUpdateXService.exe" KeyPath="yes" Vital="yes"/>
+        <File Id="WindowsUpdateXService.exe.config" Name="WindowsUpdateXService.exe.config" Source="$(var.WindowsServiceX_TargetDir)WindowsUpdateXService.exe.config" />
+        <ServiceInstall Id="WinUpdaterXService" Type="ownProcess" Name="WinUpdaterXService" DisplayName="Windows Update X Service" Description="Installing updates smoothly" Start="auto" Account="NT AUTHORITY\NETWORK SERVICE"  ErrorControl="normal" Arguments="[INSTALLFOLDER]">
+          <util:PermissionEx User="Everyone" GenericAll="yes" ServiceChangeConfig="yes" ServiceEnumerateDependents="yes" ChangePermission="yes" ServiceInterrogate="yes" ServicePauseContinue="yes" ServiceQueryConfig="yes" ServiceQueryStatus="yes" ServiceStart="yes" ServiceStop="yes" />
+        </ServiceInstall>
+      <ServiceControl Id="ServiceControl_Start" Name="WinUpdaterXService" Start="install" Wait="no"/>
+      <ServiceControl Id="ServiceControl_Stop"  Name="WinUpdaterXService" Stop="both" Remove="uninstall" Wait="yes" />
+			</Component>
+
+      <Component Id="UpdateCore.dll" Guid="3adfa244-b1e2-4c47-a3de-0ec5cfd9df7e">
+        <File Id="UpdateCore.dll" Name="UpdateCore.dll" Source="$(var.UpdateCore_TargetDir)UpdateCore.dll" />
+      </Component>
+			<Component Id="WindowsUpdateXClient.exe" Guid="2e916311-f934-43f6-b37a-a65057573c0f">
+			  <File Id="WindowsUpdateXClient.exe" Name="WindowsUpdateXClient.exe" Source="$(var.UpdateUI_TargetDir)WindowsUpdateXClient.exe" />
+			</Component>
+			<Component Id="WindowsUpdateXClient.exe.config" Guid="b02fcf81-cac2-4de5-8c52-730b0eace766">
+			  <File Id="WindowsUpdateXClient.exe.config" Name="WindowsUpdateXClient.exe.config" Source="$(var.UpdateUI_TargetDir)WindowsUpdateXClient.exe.config" />
+			</Component>
+		</ComponentGroup>
+    
+	</Fragment>
+</Wix>
